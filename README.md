@@ -25,6 +25,21 @@ Este módulo ofrece principalmente tres ventajas fundamentales:
 - OCR
     - Por último en cuanto a funcionalidades que ofrece, el OCR da la sensación de funcionar correctamente para los casos más simples, pero que para casuísticas OCR más realistas deja bastante que desear. Los resultados de las pruebas pueden consultarse en el Notebook basics.ipynb, en la sección OCR.
 
+### Módulo `docling_explorer`
+
+Se ha extraído la implementación de referencia `MaxTokenLimitingChunker` del notebook
+`docling_chunker.ipynb` al módulo `docling_explorer/chunker.py`, y se expone la función:
+
+```python
+from docling_explorer.chunker import chunk_document
+
+chunks = chunk_document("resources/JerarquiaDocs.pdf", max_tokens=150)
+```
+
+La función devuelve una lista de `BaseChunk` de Docling, garantizando que ningún chunk
+supera el límite de tokens indicado. Se incluyen tests de contrato en `tests/`
+ejecutables con `pytest`.
+
 ### Sobre el repositorio...
 
 Dentro de este repositorio podemos encontrar los siguientes recursos:
@@ -32,3 +47,5 @@ Dentro de este repositorio podemos encontrar los siguientes recursos:
 - **basics.ipynb** (notebook con los básicos de Docling para las tres funcionalidades comentadas)
 - **docling_chunker.ipynb** (notebook centrado en chunking avanzado)
 - **docling_chunker_router.ipynb**(notebook centrado en chunking avanzado sobre manual de routers)
+- **docling_explorer/** (módulo Python con la extracción del chunker avanzado)
+- **tests/** (tests de contrato para el chunker)
