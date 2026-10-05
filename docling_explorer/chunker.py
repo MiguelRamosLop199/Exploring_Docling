@@ -50,7 +50,6 @@ class MaxTokenLimitingChunker(BaseChunker):
             meta = DocMeta.model_validate(chunk.meta)
             meta_text = self._serialize_meta_to_include(meta=meta)
             meta_list = [meta_text] if meta_text else []
-            full_ser = self.delim.join(meta_list + ([chunk.text] if chunk.text else []))
 
             meta_tokens = self.tokenizer(
                 meta_text, return_offsets_mapping=True, add_special_tokens=False
@@ -70,6 +69,15 @@ class MaxTokenLimitingChunker(BaseChunker):
                 chunk.text, return_offsets_mapping=True, add_special_tokens=False
             )["offset_mapping"]
             num_text_tokens = len(text_tokens)
+
+            if num_tokens_avail_for_text <= 0:
+                # El título no cabe en el presupuesto: se deja fuera del texto del
+                # chunk (sigue en ``chunk.meta.headings``) y el cuerpo usa todo
+                # ``max_tokens`` para no perder texto.
+                meta_list = []
+                num_tokens_avail_for_text = self.max_tokens
+
+            full_ser = self.delim.join(meta_list + ([chunk.text] if chunk.text else []))
 
             if num_text_tokens <= num_tokens_avail_for_text:
                 c = deepcopy(chunk)

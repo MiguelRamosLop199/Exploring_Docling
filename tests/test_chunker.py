@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 from docling.document_converter import DocumentConverter
 from docling.exceptions import ConversionError
-from docling_core.transforms.chunker import BaseChunk
+from docling_core.transforms.chunker import BaseChunk, HierarchicalChunker
 from docling_core.types.doc import DoclingDocument as DLDocument
 from pydantic import ValidationError
 from transformers import AutoTokenizer
@@ -102,20 +102,51 @@ def test_max_tokens_must_be_positive():
         MaxTokenLimitingChunker(max_tokens=-1)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "defecto: con max_tokens=1 se lanza ValueError porque "
-        "num_tokens_avail_for_text == 0; el chunker debería manejar "
-        "metadatos mayores que max_tokens"
-    ),
-)
-def test_very_small_max_tokens_does_not_crash(tokenizer, sample_document):
+def test_very_small_max_tokens_does_not_crash(sample_document):
+    """El chunker no debe lanzar ValueError cuando el heading ocupa todo el presupuesto."""
     max_tokens = 1
     chunker = MaxTokenLimitingChunker(max_tokens=max_tokens)
     chunks = list(chunker.chunk(sample_document))
-    for chunk in chunks:
-        assert _token_count(chunk.text, tokenizer) <= max_tokens
+    assert chunks, "Se esperaban chunks incluso con max_tokens=1"
+
+
+def test_small_max_tokens_loses_no_section(sample_document):
+    """Con max_tokens=5 ningún título ni cuerpo se pierde por no caber el heading."""
+    from collections import defaultdict
+
+    max_tokens = 5
+    inner_chunks = list(HierarchicalChunker().chunk(sample_document))
+    chunks = list(MaxTokenLimitingChunker(max_tokens=max_tokens).chunk(sample_document))
+
+    assert inner_chunks, "Se esperaban chunks del chunker base"
+    assert chunks, "El chunker no debe descartar todas las secciones"
+
+    def _compact(value: str) -> str:
+        return "".join(value.split())
+
+    def _heading_tuple(chunk: BaseChunk):
+        return tuple(chunk.meta.headings) if chunk.meta and chunk.meta.headings else ()
+
+    inner_by_heading: dict[tuple[str, ...], list[BaseChunk]] = defaultdict(list)
+    for c in inner_chunks:
+        inner_by_heading[_heading_tuple(c)].append(c)
+
+    out_by_heading: dict[tuple[str, ...], list[BaseChunk]] = defaultdict(list)
+    for c in chunks:
+        out_by_heading[_heading_tuple(c)].append(c)
+
+    for heading, inners in inner_by_heading.items():
+        assert heading in out_by_heading, (
+            f"Sección perdida con max_tokens={max_tokens}: {heading}"
+        )
+        inner_body = _compact("".join(c.text or "" for c in inners))
+        out_body = _compact("".join(c.text or "" for c in out_by_heading[heading]))
+        for part in heading:
+            out_body = out_body.replace(_compact(part), "")
+        assert inner_body in out_body, (
+            f"Se perdió texto del cuerpo con max_tokens={max_tokens}: "
+            f"sección={heading}, cuerpo={inner_body[:80]!r}..."
+        )
 
 
 def test_chunk_document_rejects_missing_path():
