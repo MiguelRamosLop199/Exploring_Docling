@@ -1,0 +1,21 @@
+# Dependencias principales verificadas en .venv (Python 3.14.6).
+# Docling trae sus dependencias transitivas; estas versiones pinadas fueron
+# las usadas durante la extracción del chunker avanzado.
+
+docling==2.131.0
+docling-core==2.99.0
+docling-slim==2.131.0
+docling-ibm-models==4.0.3
+docling-parse==7.22.1
+
+huggingface_hub==1.33.0
+tokenizers==0.23.2
+torch==2.14.0
+torchvision==0.29.0
+transformers==5.17.0
+
+pydantic==2.13.5
+
+# Tests
+pytest==9.1.1
+python-docx==1.2.0
