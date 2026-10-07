@@ -45,6 +45,45 @@ class MaxTokenLimitingChunker(BaseChunker):
             meta_parts.append(captions_part)
         return self.delim.join(meta_parts)
 
+    def _split_text_to_token_limit(
+        self, text: str, max_tokens: int
+    ) -> Iterator[str]:
+        """Divide ``text`` en trozos de como mucho ``max_tokens`` tokens.
+
+        Cuando es posible, el corte se realiza en el último espacio dentro del
+        presupuesto de tokens para no partir palabras entre dos chunks. Si no
+        hay espacio disponible, cae al corte por límite de token (puede partir
+        una palabra muy larga).
+        """
+        remaining = text
+        while remaining:
+            remaining = remaining.lstrip()
+            if not remaining:
+                return
+            tokens = self.tokenizer(
+                remaining,
+                return_offsets_mapping=True,
+                add_special_tokens=False,
+                truncation=False,
+            )
+            offsets = tokens["offset_mapping"]
+            if len(offsets) <= max_tokens:
+                yield remaining
+                return
+
+            limit_char = offsets[max_tokens - 1][1]
+            candidate = remaining[:limit_char]
+            split_rel = candidate.rfind(" ")
+            if split_rel > 0:
+                yield candidate[:split_rel]
+                remaining = remaining[split_rel + 1 :]
+            else:
+                # No hay límite de palabra disponible: cortamos justo en el
+                # límite de token. Esto solo ocurre con palabras más largas que
+                # el presupuesto de tokens.
+                yield candidate
+                remaining = remaining[limit_char:]
+
     def _split_above_max_tokens(self, chunk_iter: Iterable[BaseChunk]) -> Iterator[BaseChunk]:
         for chunk in chunk_iter:
             meta = DocMeta.model_validate(chunk.meta)
@@ -84,15 +123,9 @@ class MaxTokenLimitingChunker(BaseChunker):
                 c.text = full_ser
                 yield c
             else:
-                fitting_texts = [
-                    chunk.text[
-                        text_tokens[base][0] : text_tokens[
-                            min(base + num_tokens_avail_for_text, num_text_tokens) - 1
-                        ][1]
-                    ]
-                    for base in range(0, num_text_tokens, num_tokens_avail_for_text)
-                ]
-                for text in fitting_texts:
+                for text in self._split_text_to_token_limit(
+                    chunk.text, num_tokens_avail_for_text
+                ):
                     c = deepcopy(chunk)
                     c.text = self.delim.join(meta_list + [text])
                     yield c

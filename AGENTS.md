@@ -52,6 +52,8 @@ avanzado por límite de tokens) y OCR. Es un repositorio de análisis, no una li
 - Metodología: LAID v1.0 (skill `laid-methodology`) · AIWA: heredado de `laid-agents` (?)
 - Tipo de proyecto: exploración / spike, sin producto desplegado (?)
 - Modo por defecto: mixta · se decide por tarea con la rúbrica de verificabilidad
+- Tracker: Jira (proyecto `LAID1`) configurado en `.laid/backlog-project.json`; la lectura de
+  expedientes la realiza el subagente `tracker/jira-read`
 - Delegable (`agente`/`mixta`): extracción de lógica de notebooks a módulos Python, `requirements.txt`,
   andamiaje, docs técnicas, tests de límite de tokens
 - Solo manual: no hay rutas de auth/crypto/pagos; la interpretación de resultados de chunking y las
